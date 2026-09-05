@@ -1,0 +1,596 @@
+/*
+====================================================================================================
+ UNIVERSIDAD CATÓLICA DE SANTA MARÍA - FACULTAD DE CIENCIAS E INGENIERÍAS FÍSICAS Y FORMALES
+ ESCUELA PROFESIONAL DE INGENIERÍA DE SISTEMAS
+ ASIGNATURA: LENGUAJES DE PROGRAMACIÓN III
+ PRÁCTICA 03: POO AVANZADA Y PRINCIPIOS DE DISEÑO SOLID (Hotel_Code)
+====================================================================================================
+
+APARTADO DE EXPLICACIÓN: CUMPLIMIENTO DE EXPERIENCIAS Y PRINCIPIOS SOLID (GUÍA 03)
+----------------------------------------------------------------------------------------------------
+1. EXPERIENCIA 1: SINGLE RESPONSIBILITY PRINCIPLE (SRP) - RESPONSABILIDAD ÚNICA
+   * Problema: La clase Habitacion funcionaba originalmente como un "God Object", mezclando datos del 
+     cuarto con verificación de calendarios, manipulación de estados y generación de reportes financieros.
+   * Solución implementada:
+     - Habitacion se limitó exclusivamente al estado y atributos intrínsecos de la habitación.
+     - GestorDisponibilidadHabitacion asumió la verificación de reservas en rangos de fechas, búsqueda 
+       de habitaciones disponibles y actualización de estados ocupado/disponible.
+     - GestorInformes asumió el procesamiento estadístico: reportes de ocupación por tipo y cálculo de 
+       ingresos por período.
+     - Cliente y Personal mantienen una única razón de cambio: gestionar sus datos de entidad e historial.
+
+2. EXPERIENCIA 2: OPEN/CLOSED PRINCIPLE (OCP) - ABIERTO / CERRADO
+   * Problema: La lógica de cancelación y penalizaciones de reembolso estaba acoplada rígidamente dentro 
+     de Reserva mediante sentencias condicionales que requerían modificar la clase ante cada nueva política.
+   * Solución implementada:
+     - Se creó la abstracción PoliticaCancelacion con métodos puedeCancelar(...) y calcularMontoReembolso(...).
+     - Se implementaron políticas concretas intercambiables: PoliticaCancelacionFlexible (100% reembolso 
+       hasta 24h antes), PoliticaCancelacionModerada (50% reembolso hasta 72h antes) y 
+       PoliticaCancelacionEstricta (0% reembolso / no reembolsable).
+     - Reserva delega en la política inyectada. El sistema queda ABIERTO a la extensión (agregar nuevas 
+       políticas como promociones corporativas) y CERRADO a la modificación de Reserva.
+
+3. EXPERIENCIA 3: LISKOV SUBSTITUTION PRINCIPLE (LSP) - SUSTITUCIÓN DE LISKOV
+   * Problema: Subclases de Habitacion alteraban comportamientos base o generaban inconsistencias de 
+     capacidad o tarifas en colecciones polimórficas.
+   * Solución implementada:
+     - Habitacion define formalmente el contrato abstracto con calcularPrecioTotal(noches) y getCapacidadMaxima().
+     - HabitacionSimple, HabitacionDoble y HabitacionSuite extienden Habitacion cumpliendo rigurosamente 
+       las precondiciones y postcondiciones del contrato base, incorporando cálculos consistentes según sus 
+       características (escritorio, camas adicionales o recargo por lujo y jacuzzi).
+     - Cualquier subclase puede sustituir a Habitacion en colecciones polimórficas (como en listas de gestores 
+       o en Main) sin alterar el comportamiento esperado ni producir excepciones en tiempo de ejecución.
+
+4. EXPERIENCIA 4: INTERFACE SEGREGATION PRINCIPLE (ISP) - SEGREGACIÓN DE INTERFACES
+   * Problema: Una interfaz monolítica de servicios forzaría a todas las habitaciones a implementar 
+     operaciones que no soportan (e.g., solicitar lavandería o comida en habitaciones básicas).
+   * Solución implementada:
+     - Se crearon interfaces granulares e independientes: ServicioLimpieza, ServicioComida y ServicioLavanderia.
+     - HabitacionSimple implementa únicamente ServicioLimpieza.
+     - HabitacionDoble implementa ServicioLimpieza y ServicioComida.
+     - HabitacionSuite implementa ServicioLimpieza, ServicioComida y ServicioLavanderia.
+     - Ninguna clase está obligada a depender de métodos ni servicios que no utiliza ni proporciona.
+
+5. EXPERIENCIA 5: DEPENDENCY INVERSION PRINCIPLE (DIP) - INVERSIÓN DE DEPENDENCIAS
+   * Problema: NotificacionReserva dependía acopladamente de una clase concreta de correo (EnviadorCorreo), 
+     impidiendo escalar a nuevos canales sin reescribir la clase de alto nivel.
+   * Solución implementada:
+     - Se introdujo la interfaz de abstracción CanalNotificacion con el método enviar(destinatario, mensaje).
+     - Los módulos de bajo nivel (EnviadorCorreo, EnviadorSMS, NotificadorSlack) implementan CanalNotificacion.
+     - NotificacionReserva (módulo de alto nivel) depende exclusivamente de la abstracción CanalNotificacion, 
+       recibida por Inyección de Dependencias en su constructor y permitiendo su sustitución en caliente 
+       mediante cambiarCanal(...).
+====================================================================================================
+*/
+
+digraph HotelCodeSOLID {
+    // Configuración general del grafo
+    graph [
+        rankdir=TB,
+        compound=true,
+        fontname="Helvetica,Arial,sans-serif",
+        fontsize=12,
+        pad="0.4",
+        nodesep=0.5,
+        ranksep=0.7,
+        bgcolor="#F8F9FA",
+        label=<<table border="0" cellborder="0" cellspacing="0">
+            <tr><td align="center"><font point-size="18" color="#1A237E"><b>SISTEMA DE GESTIÓN HOTELERA (Hotel_Code)</b></font></td></tr>
+            <tr><td align="center"><font point-size="12" color="#37474F">Arquitectura de Clases y Cumplimiento de Principios SOLID - Práctica 03 (LP3 UCSM)</font></td></tr>
+        </table>>,
+        labelloc="t"
+    ];
+
+    node [
+        shape=plain,
+        fontname="Helvetica,Arial,sans-serif",
+        fontsize=9
+    ];
+
+    edge [
+        fontname="Helvetica,Arial,sans-serif",
+        fontsize=8,
+        color="#37474F"
+    ];
+
+    // =========================================================================
+    // APARTADO: EXPLICACIÓN Y CUMPLIMIENTO SOLID (MÁXIMO UNA HOJA / VISUAL)
+    // =========================================================================
+    subgraph cluster_resumen_solid {
+        label="CUMPLIMIENTO DE EXPERIENCIAS Y PRINCIPIOS SOLID (Guía 03 - LP3)";
+        fontname="Helvetica,Arial,sans-serif";
+        fontsize=12;
+        fontcolor="#0D47A1";
+        style="filled,bold";
+        color="#1976D2";
+        fillcolor="#E3F2FD";
+
+        NotaExplicacionSOLID [
+            label=<
+            <table border="0" cellborder="1" cellspacing="4" cellpadding="6" bgcolor="#FFFFFF" color="#90CAF9">
+                <tr>
+                    <td bgcolor="#1565C0" align="center" colspan="3">
+                        <font color="#FFFFFF" point-size="11"><b>EVALUACIÓN DE EXPERIENCIAS Y APLICACIÓN DE PRINCIPIOS SOLID</b></font>
+                    </td>
+                </tr>
+                <tr>
+                    <td bgcolor="#E8EAF6" align="center" width="130"><b>Principio / Exp.</b></td>
+                    <td bgcolor="#E8EAF6" align="center" width="220"><b>Problema / Violación Previa</b></td>
+                    <td bgcolor="#E8EAF6" align="center" width="370"><b>Solución Implementada en Hotel_Code</b></td>
+                </tr>
+                <tr>
+                    <td bgcolor="#F5F5F5" align="left"><b>1. SRP (Exp. 1)<br/>Responsabilidad Única</b></td>
+                    <td align="left"><i>Habitacion</i> era un &quot;God Object&quot; que mezclaba datos de habitación, cálculo de disponibilidad y generación de reportes financieros.</td>
+                    <td align="left">• <b>Habitacion</b>: Mantiene sólo datos del cuarto.<br/>• <b>GestorDisponibilidadHabitacion</b>: Gestiona verificación de fechas y estados.<br/>• <b>GestorInformes</b>: Genera reportes de ocupación y cálculo de ingresos.<br/>• <b>Cliente / Personal</b>: Gestionan únicamente sus datos y colecciones asociadas.</td>
+                </tr>
+                <tr>
+                    <td bgcolor="#F5F5F5" align="left"><b>2. OCP (Exp. 2)<br/>Abierto / Cerrado</b></td>
+                    <td align="left"><i>Reserva</i> manejaba cancelaciones y penalizaciones rígidamente con <i>if/else</i>, obligando a modificarla ante nuevas reglas.</td>
+                    <td align="left">• Se desacopló la lógica creando la interfaz <b>PoliticaCancelacion</b>.<br/>• Se implementaron <b>Flexible</b> (100% reembolso &gt;=24h), <b>Moderada</b> (50% reembolso &gt;=72h) y <b>Estricta</b> (0% reembolso).<br/>• <b>Reserva</b> delega sin conocer el tipo: abierta a extensión, cerrada a cambios.</td>
+                </tr>
+                <tr>
+                    <td bgcolor="#F5F5F5" align="left"><b>3. LSP (Exp. 3)<br/>Sustitución de Liskov</b></td>
+                    <td align="left">Riesgo de que subclases rompan el contrato base o devuelvan valores incongruentes o excepciones al ser tratadas polimórficamente.</td>
+                    <td align="left">• <b>Habitacion</b> define el contrato abstracto (<i>calcularPrecioTotal</i>, <i>getCapacidadMaxima</i>).<br/>• <b>HabitacionSimple</b>, <b>Doble</b> y <b>Suite</b> respetan pre/postcondiciones exactas.<br/>• Cualquier subclase sustituye a <i>Habitacion</i> en colecciones sin causar fallos en tiempo de ejecución.</td>
+                </tr>
+                <tr>
+                    <td bgcolor="#F5F5F5" align="left"><b>4. ISP (Exp. 4)<br/>Segregación Interfaces</b></td>
+                    <td align="left">Interfaz &quot;god&quot; de servicios que obligaría a habitaciones simples a implementar servicios que no brindan (comida, lavandería).</td>
+                    <td align="left">• Se crearon 3 interfaces específicas: <b>ServicioLimpieza</b>, <b>ServicioComida</b> y <b>ServicioLavanderia</b>.<br/>• <i>HabitacionSimple</i> implementa sólo Limpieza.<br/>• <i>HabitacionDoble</i> implementa Limpieza y Comida.<br/>• <i>HabitacionSuite</i> implementa las 3 interfaces. Ninguna clase depende de métodos inútiles.</td>
+                </tr>
+                <tr>
+                    <td bgcolor="#F5F5F5" align="left"><b>5. DIP (Exp. 5)<br/>Inversión Dependencias</b></td>
+                    <td align="left"><i>NotificacionReserva</i> (alto nivel) dependía rígidamente de <i>EnviadorCorreo</i> (bajo nivel), impidiendo agregar SMS o Slack.</td>
+                    <td align="left">• Se creó la abstracción <b>CanalNotificacion</b> (interfaz).<br/>• <b>EnviadorCorreo</b>, <b>EnviadorSMS</b> y <b>NotificadorSlack</b> implementan la interfaz.<br/>• <i>NotificacionReserva</i> recibe <i>CanalNotificacion</i> vía Inyección de Dependencias y permite <i>cambiarCanal(...)</i> dinámicamente.</td>
+                </tr>
+            </table>
+            >
+        ];
+    }
+
+    // =========================================================================
+    // PAQUETE: entidades.usuario & entidades.empleado
+    // =========================================================================
+    subgraph cluster_entidades {
+        label="Paquetes: entidades.usuario | entidades.empleado";
+        color="#78909C";
+        style="dashed";
+        bgcolor="#ECEFF1";
+
+        Cliente [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#CFD8DC" align="center" border="1"><b>Cliente</b><br/><i>(entidades.usuario)</i></td></tr>
+                <tr><td align="left" border="1">
+                    - idCliente: String<br/>
+                    - dni: String<br/>
+                    - nombreCompleto: String<br/>
+                    - email: String<br/>
+                    - telefono: String<br/>
+                    - historialReservas: List&lt;Reserva&gt;
+                </td></tr>
+                <tr><td align="left" border="1">
+                    + Cliente(...)<br/>
+                    + agregarReservaAlHistorial(reserva: Reserva): void<br/>
+                    + getHistorialReservas(): List&lt;Reserva&gt;<br/>
+                    + getIdCliente(): String<br/>
+                    + getDni(): String<br/>
+                    + getNombreCompleto(): String<br/>
+                    + getEmail(): String<br/>
+                    + getTelefono(): String
+                </td></tr>
+            </table>
+            >
+        ];
+
+        Personal [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#CFD8DC" align="center" border="1"><b>Personal</b><br/><i>(entidades.empleado)</i></td></tr>
+                <tr><td align="left" border="1">
+                    - idEmpleado: String<br/>
+                    - nombre: String<br/>
+                    - turno: String<br/>
+                    - habitacionesAsignadas: List&lt;Habitacion&gt;
+                </td></tr>
+                <tr><td align="left" border="1">
+                    + Personal(...)<br/>
+                    + asignarHabitacion(habitacion: Habitacion): void<br/>
+                    + LiberarAsignarHabitacion(habitacion: Habitacion): void<br/>
+                    + getCargaTrabajo(): int<br/>
+                    + getHabitacionesAsignadas(): List&lt;Habitacion&gt;<br/>
+                    + getIdEmpleado(): String<br/>
+                    + getNombre(): String<br/>
+                    + getTurno(): String
+                </td></tr>
+            </table>
+            >
+        ];
+    }
+
+    // =========================================================================
+    // PAQUETE: hotel.habitaciones (LSP & SRP)
+    // =========================================================================
+    subgraph cluster_habitaciones {
+        label="Paquete: hotel.habitaciones (LSP)";
+        color="#81C784";
+        style="dashed";
+        bgcolor="#E8F5E9";
+
+        Habitacion [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#A5D6A7" align="center" border="1"><b>Habitacion</b><br/><i>&laquo;abstract&raquo;</i></td></tr>
+                <tr><td align="left" border="1">
+                    # numero: int<br/>
+                    # tipo: String<br/>
+                    # precioBasePorNoche: double<br/>
+                    # disponible: boolean
+                </td></tr>
+                <tr><td align="left" border="1">
+                    + Habitacion(...)<br/>
+                    + <i>calcularPrecioTotal(noches: int): double</i><br/>
+                    + <i>getCapacidadMaxima(): int</i><br/>
+                    + <i>mostrarDetalles(): void</i><br/>
+                    + getNumero(): int<br/>
+                    + getTipo(): String<br/>
+                    + getPrecioBasePorNoche(): double<br/>
+                    + isDisponible(): boolean<br/>
+                    + setDisponible(disponible: boolean): void
+                </td></tr>
+            </table>
+            >
+        ];
+
+        HabitacionSimple [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#C8E6C9" align="center" border="1"><b>HabitacionSimple</b></td></tr>
+                <tr><td align="left" border="1">
+                    - tieneEscritorio: boolean
+                </td></tr>
+                <tr><td align="left" border="1">
+                    + HabitacionSimple(...)<br/>
+                    + calcularPrecioTotal(noches: int): double<br/>
+                    + getCapacidadMaxima(): int [1]<br/>
+                    + mostrarDetalles(): void<br/>
+                    + realizarLimpieza(): void
+                </td></tr>
+            </table>
+            >
+        ];
+
+        HabitacionDoble [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#C8E6C9" align="center" border="1"><b>HabitacionDoble</b></td></tr>
+                <tr><td align="left" border="1">
+                    - cantidadCamas: int
+                </td></tr>
+                <tr><td align="left" border="1">
+                    + HabitacionDoble(...)<br/>
+                    + calcularPrecioTotal(noches: int): double<br/>
+                    + getCapacidadMaxima(): int [2]<br/>
+                    + mostrarDetalles(): void<br/>
+                    + realizarLimpieza(): void<br/>
+                    + solicitarComida(comida: String): void
+                </td></tr>
+            </table>
+            >
+        ];
+
+        HabitacionSuite [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#C8E6C9" align="center" border="1"><b>HabitacionSuite</b></td></tr>
+                <tr><td align="left" border="1">
+                    - incluyeJacuzzi: boolean<br/>
+                    - recargoLujo: double
+                </td></tr>
+                <tr><td align="left" border="1">
+                    + HabitacionSuite(...)<br/>
+                    + calcularPrecioTotal(noches: int): double<br/>
+                    + getCapacidadMaxima(): int [4]<br/>
+                    + mostrarDetalles(): void<br/>
+                    + realizarLimpieza(): void<br/>
+                    + solicitarComida(comida: String): void<br/>
+                    + solicitarLavanderia(prendas: int): void
+                </td></tr>
+            </table>
+            >
+        ];
+    }
+
+    // =========================================================================
+    // PAQUETE: hotel.servicios (ISP)
+    // =========================================================================
+    subgraph cluster_servicios {
+        label="Paquete: hotel.servicios (ISP - Interfaces Segregadas)";
+        color="#FFE082";
+        style="dashed";
+        bgcolor="#FFFDE7";
+
+        ServicioLimpieza [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#FFF59D" align="center" border="1"><b>ServicioLimpieza</b><br/><i>&laquo;interface&raquo;</i></td></tr>
+                <tr><td align="left" border="1">+ realizarLimpieza(): void</td></tr>
+            </table>
+            >
+        ];
+
+        ServicioComida [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#FFF59D" align="center" border="1"><b>ServicioComida</b><br/><i>&laquo;interface&raquo;</i></td></tr>
+                <tr><td align="left" border="1">+ solicitarComida(comida: String): void</td></tr>
+            </table>
+            >
+        ];
+
+        ServicioLavanderia [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#FFF59D" align="center" border="1"><b>ServicioLavanderia</b><br/><i>&laquo;interface&raquo;</i></td></tr>
+                <tr><td align="left" border="1">+ solicitarLavanderia(prendas: int): void</td></tr>
+            </table>
+            >
+        ];
+    }
+
+    // =========================================================================
+    // PAQUETE: hotel.reservas & hotel.gestores (SRP)
+    // =========================================================================
+    subgraph cluster_reservas_gestores {
+        label="Paquetes: hotel.reservas | hotel.gestores (SRP)";
+        color="#B0BEC5";
+        style="dashed";
+        bgcolor="#ECEFF1";
+
+        Reserva [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#CFD8DC" align="center" border="1"><b>Reserva</b><br/><i>(hotel.reservas)</i></td></tr>
+                <tr><td align="left" border="1">
+                    - codigoReserva: String<br/>
+                    - cliente: Cliente<br/>
+                    - habitacion: Habitacion<br/>
+                    - fechaCheckIn: LocalDate<br/>
+                    - fechaCheckOut: LocalDate<br/>
+                    - montoTotal: double<br/>
+                    - estado: String<br/>
+                    - politicaCancelacion: PoliticaCancelacion
+                </td></tr>
+                <tr><td align="left" border="1">
+                    + Reserva(...)<br/>
+                    + cancelar(fechaCancelacion: LocalDate): boolean<br/>
+                    + calcularReembolso(fechaCancelacion: LocalDate): double<br/>
+                    + getCantidadNoches(): int<br/>
+                    + getCodigoReserva(): String<br/>
+                    + getCliente(): Cliente<br/>
+                    + getHabitacion(): Habitacion<br/>
+                    + getFechaCheckIn(): LocalDate<br/>
+                    + getFechaCheckOut(): LocalDate<br/>
+                    + getMontoTotal(): double<br/>
+                    + getEstado(): String<br/>
+                    + setEstado(estado: String): void<br/>
+                    + getPoliticaCancelacion(): PoliticaCancelacion<br/>
+                    + setPoliticaCancelacion(pol: PoliticaCancelacion): void
+                </td></tr>
+            </table>
+            >
+        ];
+
+        GestorDisponibilidadHabitacion [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#B0BEC5" align="center" border="1"><b>GestorDisponibilidadHabitacion</b><br/><i>(hotel.gestores - SRP)</i></td></tr>
+                <tr><td align="left" border="1">
+                    - listaReservas: List&lt;Reserva&gt;<br/>
+                    - listaHabitaciones: List&lt;Habitacion&gt;
+                </td></tr>
+                <tr><td align="left" border="1">
+                    + GestorDisponibilidadHabitacion(...)<br/>
+                    + verificarDisponibilidadHabitacion(hab, ini, fin): boolean<br/>
+                    + buscarHabitacionesDisponibles(tipo, ini, fin): List&lt;Habitacion&gt;<br/>
+                    + marcarHabitacionOcupada(hab: Habitacion): void<br/>
+                    + marcarHabitacionDisponible(hab: Habitacion): void
+                </td></tr>
+            </table>
+            >
+        ];
+
+        GestorInformes [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#B0BEC5" align="center" border="1"><b>GestorInformes</b><br/><i>(hotel.gestores - SRP)</i></td></tr>
+                <tr><td align="left" border="1">
+                    - reservas: List&lt;Reserva&gt;<br/>
+                    - habitaciones: List&lt;Habitacion&gt;
+                </td></tr>
+                <tr><td align="left" border="1">
+                    + GestorInformes(...)<br/>
+                    + generarInformesOcupacionPorTipo(ini, fin): void<br/>
+                    + generarInformesIngresosPorPeriodo(ini, fin): void<br/>
+                    + calcularTotalIngresos(): double
+                </td></tr>
+            </table>
+            >
+        ];
+    }
+
+    // =========================================================================
+    // PAQUETE: politicas (OCP)
+    // =========================================================================
+    subgraph cluster_politicas {
+        label="Paquete: politicas (OCP - Políticas Intercambiables)";
+        color="#CE93D8";
+        style="dashed";
+        bgcolor="#F3E5F5";
+
+        PoliticaCancelacion [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#E1BEE7" align="center" border="1"><b>PoliticaCancelacion</b><br/><i>&laquo;interface&raquo;</i></td></tr>
+                <tr><td align="left" border="1">
+                    + puedeCancelar(reserva, fecha): boolean<br/>
+                    + calcularMontoReembolso(reserva, fecha): double<br/>
+                    + getNombrePolitica(): String
+                </td></tr>
+            </table>
+            >
+        ];
+
+        PoliticaCancelacionFlexible [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#F8BBD0" align="center" border="1"><b>PoliticaCancelacionFlexible</b></td></tr>
+                <tr><td align="left" border="1">
+                    + puedeCancelar(r, f): boolean [&gt;= 1 d]<br/>
+                    + calcularMontoReembolso(r, f): double [100%]<br/>
+                    + getNombrePolitica(): String
+                </td></tr>
+            </table>
+            >
+        ];
+
+        PoliticaCancelacionModerada [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#F8BBD0" align="center" border="1"><b>PoliticaCancelacionModerada</b></td></tr>
+                <tr><td align="left" border="1">
+                    + puedeCancelar(r, f): boolean [&gt;= 3 d]<br/>
+                    + calcularMontoReembolso(r, f): double [50%]<br/>
+                    + getNombrePolitica(): String
+                </td></tr>
+            </table>
+            >
+        ];
+
+        PoliticaCancelacionEstricta [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#F8BBD0" align="center" border="1"><b>PoliticaCancelacionEstricta</b></td></tr>
+                <tr><td align="left" border="1">
+                    + puedeCancelar(r, f): boolean [false]<br/>
+                    + calcularMontoReembolso(r, f): double [0.0]<br/>
+                    + getNombrePolitica(): String
+                </td></tr>
+            </table>
+            >
+        ];
+    }
+
+    // =========================================================================
+    // PAQUETE: notificaciones (DIP)
+    // =========================================================================
+    subgraph cluster_notificaciones {
+        label="Paquete: notificaciones (DIP - Inversión de Dependencias)";
+        color="#80DEEA";
+        style="dashed";
+        bgcolor="#E0F7FA";
+
+        CanalNotificacion [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#B2EBF2" align="center" border="1"><b>CanalNotificacion</b><br/><i>&laquo;interface&raquo;</i></td></tr>
+                <tr><td align="left" border="1">
+                    + enviar(destinatario: String, mensaje: String): void
+                </td></tr>
+            </table>
+            >
+        ];
+
+        EnviadorCorreo [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#E0F2F1" align="center" border="1"><b>EnviadorCorreo</b></td></tr>
+                <tr><td align="left" border="1">+ enviar(destinatario, mensaje): void</td></tr>
+            </table>
+            >
+        ];
+
+        EnviadorSMS [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#E0F2F1" align="center" border="1"><b>EnviadorSMS</b></td></tr>
+                <tr><td align="left" border="1">+ enviar(destinatario, mensaje): void</td></tr>
+            </table>
+            >
+        ];
+
+        NotificadorSlack [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#E0F2F1" align="center" border="1"><b>NotificadorSlack</b></td></tr>
+                <tr><td align="left" border="1">+ enviar(destinatario, mensaje): void</td></tr>
+            </table>
+            >
+        ];
+
+        NotificacionReserva [
+            label=<
+            <table border="1" cellborder="0" cellspacing="0" cellpadding="3" bgcolor="#FFFFFF">
+                <tr><td bgcolor="#80DEEA" align="center" border="1"><b>NotificacionReserva</b><br/><i>(Alto Nivel - DIP)</i></td></tr>
+                <tr><td align="left" border="1">
+                    - canal: CanalNotificacion
+                </td></tr>
+                <tr><td align="left" border="1">
+                    + NotificacionReserva(canal: CanalNotificacion)<br/>
+                    + cambiarCanal(nuevoCanal: CanalNotificacion): void<br/>
+                    + notificarCreacionReserva(reserva: Reserva): void<br/>
+                    + notificarCancelacionReserva(reserva: Reserva, reembolso: double): void
+                </td></tr>
+            </table>
+            >
+        ];
+    }
+
+    // =========================================================================
+    // RELACIONES: HERENCIA Y GENERALIZACIÓN (LSP)
+    // =========================================================================
+    HabitacionSimple -> Habitacion [arrowhead=onormal, style=solid, color="#2E7D32"];
+    HabitacionDoble  -> Habitacion [arrowhead=onormal, style=solid, color="#2E7D32"];
+    HabitacionSuite  -> Habitacion [arrowhead=onormal, style=solid, color="#2E7D32"];
+
+    // =========================================================================
+    // RELACIONES: REALIZACIÓN DE INTERFACES DE SERVICIOS (ISP)
+    // =========================================================================
+    HabitacionSimple -> ServicioLimpieza   [arrowhead=onormal, style=dashed, color="#F57F17", label="implements"];
+    HabitacionDoble  -> ServicioLimpieza   [arrowhead=onormal, style=dashed, color="#F57F17"];
+    HabitacionDoble  -> ServicioComida     [arrowhead=onormal, style=dashed, color="#F57F17", label="implements"];
+    HabitacionSuite  -> ServicioLimpieza   [arrowhead=onormal, style=dashed, color="#F57F17"];
+    HabitacionSuite  -> ServicioComida     [arrowhead=onormal, style=dashed, color="#F57F17"];
+    HabitacionSuite  -> ServicioLavanderia [arrowhead=onormal, style=dashed, color="#F57F17", label="implements"];
+
+    // =========================================================================
+    // RELACIONES: REALIZACIÓN DE POLÍTICAS DE CANCELACIÓN (OCP)
+    // =========================================================================
+    PoliticaCancelacionFlexible -> PoliticaCancelacion [arrowhead=onormal, style=dashed, color="#7B1FA2"];
+    PoliticaCancelacionModerada -> PoliticaCancelacion [arrowhead=onormal, style=dashed, color="#7B1FA2"];
+    PoliticaCancelacionEstricta -> PoliticaCancelacion [arrowhead=onormal, style=dashed, color="#7B1FA2"];
+
+    // =========================================================================
+    // RELACIONES: REALIZACIÓN DE CANALES DE NOTIFICACIÓN (DIP)
+    // =========================================================================
+    EnviadorCorreo   -> CanalNotificacion [arrowhead=onormal, style=dashed, color="#00838F"];
+    EnviadorSMS      -> CanalNotificacion [arrowhead=onormal, style=dashed, color="#00838F"];
+    NotificadorSlack -> CanalNotificacion [arrowhead=onormal, style=dashed, color="#00838F"];
+
+    // =========================================================================
+    // ASOCIACIONES Y DEPENDENCIAS DEL MODELO
+    // =========================================================================
+    Reserva -> Cliente             [arrowhead=vee, style=solid, label="1 (cliente)"];
+    Reserva -> Habitacion          [arrowhead=vee, style=solid, label="1 (habitacion)"];
+    Reserva -> PoliticaCancelacion [arrowhead=vee, style=solid, label="1 (politica - OCP)"];
+    Cliente -> Reserva             [arrowhead=vee, style=dashed, label="* (historial)"];
+    Personal -> Habitacion         [arrowhead=vee, style=dashed, label="* (asignadas)"];
+
+    GestorDisponibilidadHabitacion -> Habitacion [arrowhead=vee, style=dashed, label="*"];
+    GestorDisponibilidadHabitacion -> Reserva    [arrowhead=vee, style=dashed, label="*"];
+    GestorInformes -> Habitacion                 [arrowhead=vee, style=dashed, label="*"];
+    GestorInformes -> Reserva                    [arrowhead=vee, style=dashed, label="*"];
+
+    NotificacionReserva -> CanalNotificacion [arrowhead=vee, style=solid, label="1 (abstracción - DIP)"];
+    NotificacionReserva -> Reserva           [arrowhead=vee, style=dashed, label="usa"];
+}

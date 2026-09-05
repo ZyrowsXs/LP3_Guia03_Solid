@@ -1,4 +1,4 @@
-# 🏛️ Universidad Católica de Santa María
+# Universidad Católica de Santa María
 ## Escuela Profesional de Ingeniería de Sistemas
 ### Asignatura: Lenguajes de Programación III
 **Práctica de Laboratorio N° 03: Programación Orientada a Objetos Avanzada — Principios SOLID**
@@ -11,7 +11,7 @@
 
 ---
 
-## 📋 Tabla de Contenidos
+## Tabla de Contenidos
 1. [Descripción General](#-descripción-general)
 2. [Fundamentos Teóricos de los Principios SOLID](#-fundamentos-teóricos-de-los-principios-solid)
 3. [Estructura del Repositorio](#-estructura-del-repositorio)
@@ -26,7 +26,7 @@
 
 ---
 
-## 📖 Descripción General
+## Descripción General
 
 Este repositorio contiene la solución completa, modular y documentada correspondiente a la **Guía Práctica N° 03** del curso de **Lenguajes de Programación III (UCSM)**. El objetivo primordial es demostrar la transición desde diseños acoplados y frágiles hacia arquitecturas de software robustas, flexibles, mantenibles y extensibles mediante la aplicación rigurosa de los **5 Principios SOLID**.
 
@@ -36,7 +36,7 @@ El proyecto abarca:
 
 ---
 
-## 🧠 Fundamentos Teóricos de los Principios SOLID
+## Fundamentos Teóricos de los Principios SOLID
 
 Los principios SOLID, acuñados por Robert C. Martin ("Uncle Bob"), representan las cinco reglas fundamentales para el diseño de software orientado a objetos de calidad profesional:
 
@@ -50,7 +50,7 @@ Los principios SOLID, acuñados por Robert C. Martin ("Uncle Bob"), representan 
 
 ---
 
-## 🗂️ Estructura del Repositorio
+## Estructura del Repositorio
 
 ```
 LP3_Guia03_SOLID/
@@ -135,7 +135,7 @@ LP3_Guia03_SOLID/
 
 ---
 
-## 🏨 Actividad Principal: Sistema de Gestión Hotelera (`Hotel_Code`)
+## Actividad Principal: Sistema de Gestión Hotelera (`Hotel_Code`)
 
 El sistema modela una plataforma hotelera moderna resolviendo los retos planteados en las **5 Experiencias Prácticas**:
 
@@ -181,7 +181,7 @@ El sistema modela una plataforma hotelera moderna resolviendo los retos plantead
 
 ---
 
-## 🎯 Ejercicios Propuestos
+## Ejercicios Propuestos
 
 ### Ejercicio 1: Principio de Responsabilidad Única (SRP)
 * **Objetivo:** Refactorizar la clase `Empleado` que almacenaba datos del trabajador y además calculaba su liquidación mensual.
@@ -214,7 +214,7 @@ El sistema modela una plataforma hotelera moderna resolviendo los retos plantead
 
 ---
 
-## 🚀 Guía de Compilación y Ejecución
+## Guía de Compilación y Ejecución
 
 ### Prerrequisitos
 * **Java Development Kit (JDK):** Versión 17 o superior instalada (`javac -version` y `java -version`).
@@ -299,7 +299,7 @@ cd ..
 
 ---
 
-## 🐙 Guía para Subir este Proyecto a GitHub
+## Guía para Subir este Proyecto a GitHub
 
 Sigue estos sencillos pasos para crear un repositorio en tu cuenta de GitHub y subir la carpeta completa:
 
@@ -333,9 +333,6 @@ git branch -M main
 git remote add origin https://github.com/TU_USUARIO/LP3_Guia03_SOLID.git
 git push -u origin main
 ```
-
-¡Listo! Tu repositorio quedará publicado con una estructura limpia, documentación integral y listo para evaluación académica.
-
 ---
 
 ## 👥 Créditos y Autores
